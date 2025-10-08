@@ -15,6 +15,7 @@ const darkTheme = createTheme({
 
 function App() {
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>();
+  const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
   const { data: collectionResponse } = useApi(() => getCollectionsMetadata());
 
   useEffect(() => {
@@ -26,6 +27,10 @@ function App() {
       window.history.pushState({}, "", `?collection=${selectedCollectionId}`);
     }
   }, [selectedCollectionId]);
+
+  const handleCollectionChange = () => {
+    setRefreshTrigger(prev => prev + 1);
+  };
 
   return (
     <ThemeProvider theme={darkTheme}>
@@ -58,8 +63,12 @@ function App() {
             </div>
           </div>
           <div className="w-4/5 ml-4">
-            {selectedCollectionId && (
-              <CompanyTable selectedCollectionId={selectedCollectionId} />
+            {selectedCollectionId && collectionResponse && (
+              <CompanyTable 
+                selectedCollectionId={selectedCollectionId}
+                collections={collectionResponse}
+                onCollectionChange={handleCollectionChange}
+              />
             )}
           </div>
         </div>
