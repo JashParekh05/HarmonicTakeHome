@@ -27,15 +27,15 @@ async def _set_job_state(session: AsyncSession, job_id: UUID, state: str):
 async def _add_activity_feed(session: AsyncSession, job_id: UUID, event_type: str, description: str, metadata: dict = None):
     """Add activity feed entry"""
     sql = text("""
-        INSERT INTO activity_feed (job_id, event_type, actor, description, metadata)
-        VALUES (:job_id, :event_type, :actor, :description, :metadata)
+        INSERT INTO activity_feed (job_id, event_type, actor, description, event_metadata)
+        VALUES (:job_id, :event_type, :actor, :description, :event_metadata)
     """)
     await session.execute(sql, {
         "job_id": str(job_id),
         "event_type": event_type,
         "actor": "system",
         "description": description,
-        "metadata": json.dumps(metadata) if metadata else None
+        "event_metadata": json.dumps(metadata) if metadata else None
     })
 
 async def _record_slo_metrics(session: AsyncSession, operation_type: str, record_count: int, duration_seconds: int, chunk_size: int):

@@ -19,7 +19,7 @@ class ActivityItem(BaseModel):
     event_type: str
     actor: Optional[str]
     description: str
-    metadata: Optional[dict]
+    event_metadata: Optional[dict]
     created_at: str
 
 class ActivityFeedResponse(BaseModel):
@@ -53,14 +53,14 @@ def get_activity_feed(
     
     activity_items = []
     for activity in activities:
-        metadata = json.loads(activity.metadata) if activity.metadata else None
+        event_metadata = json.loads(activity.event_metadata) if activity.event_metadata else None
         activity_items.append(ActivityItem(
             id=str(activity.id),
             job_id=str(activity.job_id) if activity.job_id else None,
             event_type=activity.event_type,
             actor=activity.actor,
             description=activity.description,
-            metadata=metadata,
+            event_metadata=event_metadata,
             created_at=activity.created_at.isoformat()
         ))
     
@@ -82,14 +82,14 @@ def get_job_activity(
     
     activity_items = []
     for activity in activities:
-        metadata = json.loads(activity.metadata) if activity.metadata else None
+        event_metadata = json.loads(activity.event_metadata) if activity.event_metadata else None
         activity_items.append(ActivityItem(
             id=str(activity.id),
             job_id=str(activity.job_id) if activity.job_id else None,
             event_type=activity.event_type,
             actor=activity.actor,
             description=activity.description,
-            metadata=metadata,
+            event_metadata=event_metadata,
             created_at=activity.created_at.isoformat()
         ))
     
