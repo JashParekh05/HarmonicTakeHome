@@ -73,3 +73,35 @@ class CompanyCollectionAssociation(Base):
     company_id = Column(Integer, ForeignKey("companies.id"))
     collection_id = Column(UUID(as_uuid=True), ForeignKey("company_collections.id"))
 
+
+class Job(Base):
+    __tablename__ = "jobs"
+    
+    id: Column[uuid.UUID] = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String, nullable=False)
+    state = Column(String, nullable=False)  # 'queued', 'running', 'completed', 'failed'
+    done = Column(Integer, nullable=False, default=0)
+    total = Column(Integer, nullable=False, default=0)
+    created_at: Union[datetime, Column[datetime]] = Column(
+        DateTime, default=datetime.utcnow, server_default=func.now(), nullable=False
+    )
+    updated_at: Union[datetime, Column[datetime]] = Column(
+        DateTime, default=datetime.utcnow, server_default=func.now(), nullable=False, onupdate=datetime.utcnow
+    )
+    params = Column(String)  # JSON string for job parameters
+    idempotency_key = Column(String, unique=True, nullable=True)
+    error_message = Column(String, nullable=True)
+
+
+class Event(Base):
+    __tablename__ = "events"
+    
+    id: Column[uuid.UUID] = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    type = Column(String, nullable=False)  # 'add_companies', 'remove_companies'
+    dest_collection_id = Column(UUID(as_uuid=True), ForeignKey("company_collections.id"))
+    source_collection_id = Column(UUID(as_uuid=True), ForeignKey("company_collections.id"), nullable=True)
+    company_ids = Column(String)  # JSON array of company IDs
+    created_at: Union[datetime, Column[datetime]] = Column(
+        DateTime, default=datetime.utcnow, server_default=func.now(), nullable=False
+    )
+

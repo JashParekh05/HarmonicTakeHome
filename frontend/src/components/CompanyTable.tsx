@@ -32,8 +32,18 @@ import {
   ICollection,
   moveCompaniesToCollection,
   moveAllCompaniesToCollection,
-  IMoveCompaniesResponse
+  IMoveCompaniesResponse,
+  addCompaniesToCollection,
+  getJobStatus,
+  cancelJob,
+  undoLastOperation,
+  dryRunAddOperation,
+  IAddCompaniesRequest,
+  IAddCompaniesResponse,
+  IDryRunResponse
 } from "../utils/jam-api";
+import { useJobSSE, JobProgress } from "../utils/useJobSSE";
+import ProgressBanner from "./ProgressBanner";
 
 interface CompanyTableProps {
   selectedCollectionId: string;
@@ -53,6 +63,13 @@ const CompanyTable = (props: CompanyTableProps) => {
   const [showMoveDialog, setShowMoveDialog] = useState<boolean>(false);
   const [moveAllDialog, setMoveAllDialog] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
+  
+  // Advanced job management state
+  const [currentJob, setCurrentJob] = useState<IAddCompaniesResponse | null>(null);
+  const [jobProgress, setJobProgress] = useState<JobProgress | null>(null);
+  const [showProgressBanner, setShowProgressBanner] = useState<boolean>(false);
+  const [dryRunResult, setDryRunResult] = useState<IDryRunResponse | null>(null);
+  const [showDryRunDialog, setShowDryRunDialog] = useState<boolean>(false);
 
   // Load collection data
   useEffect(() => {
@@ -70,6 +87,21 @@ const CompanyTable = (props: CompanyTableProps) => {
     setSelectedRows([]);
     setMoveResult(null);
   }, [props.selectedCollectionId]);
+
+  // SSE hook for real-time progress updates
+  useJobSSE(currentJob?.job_id || null, (progress) => {
+    setJobProgress(progress);
+    if (progress.state === 'completed' || progress.state === 'failed') {
+      // Refresh data when job completes
+      getCollectionsById(props.selectedCollectionId, offset, pageSize).then(
+        (newResponse) => {
+          setResponse(newResponse.companies);
+          setTotal(newResponse.total);
+        }
+      );
+      props.onCollectionChange();
+    }
+  });
 
   // Handle moving selected companies
   const handleMoveSelected = async () => {
@@ -179,6 +211,93 @@ const CompanyTable = (props: CompanyTableProps) => {
     }
   };
 
+  // Advanced job management functions
+  const handleAdvancedMoveSelected = async () => {
+    if (selectedRows.length === 0 || !targetCollectionId) return;
+
+    try {
+      const request: IAddCompaniesRequest = {
+        select_all: false,
+        company_ids: selectedRows.map(id => Number(id))
+      };
+
+      const result = await addCompaniesToCollection(targetCollectionId, request);
+      setCurrentJob(result);
+      setShowProgressBanner(true);
+      setShowMoveDialog(false);
+
+    } catch (error) {
+      console.error('Error starting advanced move:', error);
+    }
+  };
+
+  const handleAdvancedMoveAll = async () => {
+    if (!targetCollectionId) return;
+
+    try {
+      const request: IAddCompaniesRequest = {
+        select_all: true,
+        source_collection_id: props.selectedCollectionId
+      };
+
+      // Run dry run first
+      const dryRun = await dryRunAddOperation(targetCollectionId, request);
+      setDryRunResult(dryRun);
+      setShowDryRunDialog(true);
+
+    } catch (error) {
+      console.error('Error running dry run:', error);
+    }
+  };
+
+  const handleConfirmAdvancedMoveAll = async () => {
+    if (!targetCollectionId) return;
+
+    try {
+      const request: IAddCompaniesRequest = {
+        select_all: true,
+        source_collection_id: props.selectedCollectionId
+      };
+
+      const result = await addCompaniesToCollection(targetCollectionId, request);
+      setCurrentJob(result);
+      setShowProgressBanner(true);
+      setShowDryRunDialog(false);
+      setMoveAllDialog(false);
+
+    } catch (error) {
+      console.error('Error starting advanced move all:', error);
+    }
+  };
+
+  const handleCancelJob = async () => {
+    if (currentJob?.job_id) {
+      try {
+        await cancelJob(currentJob.job_id);
+        setCurrentJob(null);
+        setShowProgressBanner(false);
+      } catch (error) {
+        console.error('Error cancelling job:', error);
+      }
+    }
+  };
+
+  const handleUndoLastOperation = async () => {
+    try {
+      await undoLastOperation(targetCollectionId);
+      // Refresh data
+      getCollectionsById(props.selectedCollectionId, offset, pageSize).then(
+        (newResponse) => {
+          setResponse(newResponse.companies);
+          setTotal(newResponse.total);
+        }
+      );
+      props.onCollectionChange();
+    } catch (error) {
+      console.error('Error undoing operation:', error);
+    }
+  };
+
   const columns: GridColDef[] = [
     { 
       field: "liked", 
@@ -238,6 +357,16 @@ const CompanyTable = (props: CompanyTableProps) => {
         </Button>
         
         <Button
+          variant="contained"
+          color="primary"
+          size="small"
+          disabled={selectedRows.length === 0 || !targetCollectionId}
+          onClick={handleAdvancedMoveSelected}
+        >
+          Advanced Move ({selectedRows.length})
+        </Button>
+        
+        <Button
           variant="outlined"
           color="secondary"
           size="small"
@@ -245,6 +374,16 @@ const CompanyTable = (props: CompanyTableProps) => {
           onClick={() => setMoveAllDialog(true)}
         >
           Move All ({total || 0})
+        </Button>
+        
+        <Button
+          variant="outlined"
+          color="secondary"
+          size="small"
+          disabled={!targetCollectionId}
+          onClick={handleAdvancedMoveAll}
+        >
+          Advanced Move All ({total || 0})
         </Button>
       </Box>
     </GridToolbarContainer>
@@ -365,6 +504,58 @@ const CompanyTable = (props: CompanyTableProps) => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Dry Run Dialog */}
+      <Dialog open={showDryRunDialog} onClose={() => setShowDryRunDialog(false)}>
+        <DialogTitle>Dry Run Preview</DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" gutterBottom>
+            This operation will add companies to{' '}
+            {props.collections.find(c => c.id === targetCollectionId)?.collection_name}:
+          </Typography>
+          {dryRunResult && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="h6" color="primary">
+                {dryRunResult.estimated_new_companies.toLocaleString()} new companies
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {dryRunResult.already_existing.toLocaleString()} already exist
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Estimated time: {dryRunResult.estimated_time}
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowDryRunDialog(false)}>Cancel</Button>
+          <Button 
+            onClick={handleConfirmAdvancedMoveAll} 
+            variant="contained"
+            color="secondary"
+          >
+            Proceed with Move All
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Progress Banner */}
+      {currentJob && jobProgress && (
+        <ProgressBanner
+          jobId={currentJob.job_id}
+          jobName={currentJob.message}
+          progress={jobProgress.progress}
+          done={jobProgress.done}
+          total={jobProgress.total}
+          state={jobProgress.state}
+          estimatedTime={currentJob.estimated_time}
+          throughput={jobProgress.done > 0 ? jobProgress.done / 10 : undefined}
+          onCancel={handleCancelJob}
+          onUndo={handleUndoLastOperation}
+          isVisible={showProgressBanner}
+          onClose={() => setShowProgressBanner(false)}
+        />
+      )}
     </Box>
   );
 };
