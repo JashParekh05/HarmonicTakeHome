@@ -77,6 +77,51 @@ class JobManager:
                 "error": error_message
             })
     
+    async def cancel_job(self, db: Session, job_id: str):
+        """Cancel a running job"""
+        job = db.query(database.Job).get(job_id)
+        if job and job.state in ['queued', 'running']:
+            job.state = 'cancelled'
+            job.updated_at = datetime.utcnow()
+            db.commit()
+            
+            # Push cancellation update
+            self.push_progress(job_id, {
+                "done": job.done,
+                "total": job.total,
+                "state": "cancelled",
+                "progress": (job.done / job.total * 100) if job.total > 0 else 0
+            })
+            return True
+        return False
+    
+    async def get_optimal_chunk_size(self, db: Session, operation_type: str, record_count: int) -> int:
+        """Get optimal chunk size based on SLO metrics"""
+        try:
+            # Get recent performance data
+            sql = text("""
+                SELECT chunk_size, AVG(throughput_per_second) as avg_throughput
+                FROM slo_metrics 
+                WHERE operation_type = :op_type 
+                AND record_count BETWEEN :count * 0.8 AND :count * 1.2
+                AND created_at > NOW() - INTERVAL '7 days'
+                GROUP BY chunk_size
+                ORDER BY avg_throughput DESC
+                LIMIT 1
+            """)
+            result = db.execute(sql, {"op_type": operation_type, "count": record_count}).first()
+            
+            if result and result.avg_throughput > 0:
+                return result.chunk_size
+            else:
+                # Default chunk sizes based on operation type
+                if operation_type == "bulk_add_all":
+                    return 10000  # Large for set-based operations
+                else:
+                    return 2000   # Smaller for individual inserts
+        except Exception:
+            return 2000  # Fallback
+    
     async def add_all_companies_set_based(self, db: Session, job_id: str, dest_id: str, source_id: str) -> int:
         """Set-based SQL for Select All - much faster than individual inserts"""
         try:

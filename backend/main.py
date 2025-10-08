@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from starlette.middleware.cors import CORSMiddleware
 
 from backend.db import database
-from backend.routes import collections, companies, jobs
+from backend.routes import collections, companies, jobs, saved_searches, activity
 
 
 @asynccontextmanager
@@ -114,6 +114,8 @@ EXECUTE FUNCTION throttle_updates();
 app.include_router(companies.router)
 app.include_router(collections.router)
 app.include_router(jobs.router)
+app.include_router(saved_searches.router)
+app.include_router(activity.router)
 
 app.add_middleware(
     CORSMiddleware,

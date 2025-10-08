@@ -44,6 +44,8 @@ import {
 } from "../utils/jam-api";
 import { useJobSSE, JobProgress } from "../utils/useJobSSE";
 import ProgressBanner from "./ProgressBanner";
+import SavedSearchManager from "./SavedSearchManager";
+import ActivityFeed from "./ActivityFeed";
 
 interface CompanyTableProps {
   selectedCollectionId: string;
@@ -70,6 +72,9 @@ const CompanyTable = (props: CompanyTableProps) => {
   const [showProgressBanner, setShowProgressBanner] = useState<boolean>(false);
   const [dryRunResult, setDryRunResult] = useState<IDryRunResponse | null>(null);
   const [showDryRunDialog, setShowDryRunDialog] = useState<boolean>(false);
+  const [showSavedSearchManager, setShowSavedSearchManager] = useState(false);
+  const [showActivityFeed, setShowActivityFeed] = useState(false);
+  const [currentFilters, setCurrentFilters] = useState<any>({});
 
   // Load collection data
   useEffect(() => {
@@ -385,6 +390,22 @@ const CompanyTable = (props: CompanyTableProps) => {
         >
           Advanced Move All ({total || 0})
         </Button>
+        <Button
+          variant="outlined"
+          color="secondary"
+          size="small"
+          onClick={() => setShowSavedSearchManager(true)}
+        >
+          Saved Searches
+        </Button>
+        <Button
+          variant="outlined"
+          color="info"
+          size="small"
+          onClick={() => setShowActivityFeed(true)}
+        >
+          Activity Feed
+        </Button>
       </Box>
     </GridToolbarContainer>
   );
@@ -556,6 +577,27 @@ const CompanyTable = (props: CompanyTableProps) => {
           onClose={() => setShowProgressBanner(false)}
         />
       )}
+
+      {/* Saved Search Manager */}
+      <SavedSearchManager
+        open={showSavedSearchManager}
+        onClose={() => setShowSavedSearchManager(false)}
+        currentFilters={currentFilters}
+        onApplySearch={(search) => {
+          // Apply the saved search filters
+          setCurrentFilters(search.filters);
+          setShowSavedSearchManager(false);
+          // Refresh data with new filters
+          props.onCollectionChange();
+        }}
+      />
+
+      {/* Activity Feed */}
+      <ActivityFeed
+        open={showActivityFeed}
+        onClose={() => setShowActivityFeed(false)}
+        collectionId={props.selectedCollectionId}
+      />
     </Box>
   );
 };

@@ -105,3 +105,51 @@ class Event(Base):
         DateTime, default=datetime.utcnow, server_default=func.now(), nullable=False
     )
 
+
+class SavedSearch(Base):
+    __tablename__ = "saved_searches"
+    
+    id: Column[uuid.UUID] = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    filters = Column(String, nullable=False)  # JSON filter criteria
+    sort_by = Column(String, nullable=True)
+    sort_order = Column(String, nullable=True)  # 'asc', 'desc'
+    created_by = Column(String, nullable=True)  # user identifier
+    created_at: Union[datetime, Column[datetime]] = Column(
+        DateTime, default=datetime.utcnow, server_default=func.now(), nullable=False
+    )
+    updated_at: Union[datetime, Column[datetime]] = Column(
+        DateTime, default=datetime.utcnow, server_default=func.now(), nullable=False, onupdate=datetime.utcnow
+    )
+    is_public = Column(String, nullable=False, default='false')  # 'true', 'false'
+    shareable_link = Column(String, nullable=True, unique=True)
+
+
+class ActivityFeed(Base):
+    __tablename__ = "activity_feed"
+    
+    id: Column[uuid.UUID] = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    job_id = Column(UUID(as_uuid=True), ForeignKey("jobs.id"), nullable=True)
+    event_type = Column(String, nullable=False)  # 'bulk_add', 'bulk_remove', 'undo', 'cancel'
+    actor = Column(String, nullable=True)  # user identifier
+    description = Column(String, nullable=False)
+    metadata = Column(String, nullable=True)  # JSON with additional context
+    created_at: Union[datetime, Column[datetime]] = Column(
+        DateTime, default=datetime.utcnow, server_default=func.now(), nullable=False
+    )
+
+
+class SLOMetrics(Base):
+    __tablename__ = "slo_metrics"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    operation_type = Column(String, nullable=False)  # 'bulk_add_selected', 'bulk_add_all'
+    record_count = Column(Integer, nullable=False)
+    duration_seconds = Column(Integer, nullable=False)
+    chunk_size = Column(Integer, nullable=False)
+    throughput_per_second = Column(Integer, nullable=False)
+    created_at: Union[datetime, Column[datetime]] = Column(
+        DateTime, default=datetime.utcnow, server_default=func.now(), nullable=False
+    )
+
