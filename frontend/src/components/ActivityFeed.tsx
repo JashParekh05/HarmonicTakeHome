@@ -18,7 +18,7 @@ import {
   DialogActions
 } from '@mui/material';
 import {
-  Activity as ActivityIcon,
+  Timeline as ActivityIcon,
   Add as AddIcon,
   Undo as UndoIcon,
   Cancel as CancelIcon,
