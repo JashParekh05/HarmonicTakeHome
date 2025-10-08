@@ -337,7 +337,7 @@ const CompanyTable = (props: CompanyTableProps) => {
         <FormControl size="small" sx={{ minWidth: 200 }}>
           <InputLabel>Move to Collection</InputLabel>
           <Select
-            value={targetCollectionId}
+            value={targetCollectionId || ""}
             onChange={(e) => setTargetCollectionId(e.target.value)}
             label="Move to Collection"
           >
@@ -411,7 +411,7 @@ const CompanyTable = (props: CompanyTableProps) => {
   );
 
   return (
-    <Box sx={{ height: 600, width: "100%" }}>
+    <Box sx={{ height: 600, width: "100%", minWidth: 0 }}>
       <DataGrid
         rows={response}
         columns={columns}
@@ -421,7 +421,7 @@ const CompanyTable = (props: CompanyTableProps) => {
             paginationModel: { page: 0, pageSize: 25 },
           },
         }}
-        rowCount={total}
+        rowCount={total || 0}
         pagination
         checkboxSelection
         paginationMode="server"
